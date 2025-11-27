@@ -1,0 +1,63 @@
+# -----------------------------
+# Python backend
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+*.joblib
+*.db
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Data caches
+data/raw/
+data/*.csv
+data/*.json
+data/*.npy
+
+# Model weights (if >50MB keep outside Git)
+backend/models/*.pt
+backend/models/*.pth
+backend/models/*.h5
+
+# vscode / pycharm
+.vscode/
+.idea/
+
+# -----------------------------
+# Node / React frontend
+# -----------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+.cache/
+temp/
+
+# Environment variables
+*.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.test
+
+# -----------------------------
+# OS / editor junk
+# -----------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -----------------------------
+# Logs
+# -----------------------------
+*.log
+logs/
