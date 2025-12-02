@@ -71,7 +71,7 @@ def prepare_dataset(tickers: List[str]) -> pd.DataFrame:
     # Group by Ticker and build features per stock
     all_feat = []
     for ticker, g in df.groupby("Ticker"):
-        g_feat = build_features(g)
+        g_feat = build_features(g, add_target=True)
         all_feat.append(g_feat)
 
     feat_df = pd.concat(all_feat)

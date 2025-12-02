@@ -10,7 +10,7 @@ def compute_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
+def build_features(df: pd.DataFrame, add_target:bool = True) -> pd.DataFrame:
     """
     df: DataFrame with at least ['Open', 'High', 'Low', 'Close', 'Volume']
     index: DatetimeIndex
@@ -48,8 +48,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         / df["Volume"].rolling(window=20).std()
     )
 
-    # Target: next-day direction (1 = up, 0 = down or equal)
-    df["close_tomorrow"] = df["Close"].shift(-1)
-    df["target"] = (df["close_tomorrow"] > df["Close"]).astype(int)
+    if add_target:
+        # Target: next-day direction (1 = up, 0 = down or equal)
+        df["close_tomorrow"] = df["Close"].shift(-1)
+        df["target"] = (df["close_tomorrow"] > df["Close"]).astype(int)
 
     return df
+
+    
