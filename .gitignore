@@ -1,0 +1,53 @@
+# ======================
+# Python
+# ======================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ======================
+# Virtual Environments
+# ======================
+.venv/
+venv/
+env/
+
+# ======================
+# ML Artifacts / Models
+# ======================
+artifacts/
+*.pth
+*.pt
+*.joblib
+*.pkl
+
+# ======================
+# Data & Outputs
+# ======================
+data/
+predictions/
+model_testing/
+EDA_Output_*/
+
+# ======================
+# Generated Results
+# ======================
+*.png
+*.csv
+*_evaluation.txt
+
+# ======================
+# Node / React (future)
+# ======================
+node_modules/
+dist/
+build/
+
+# ======================
+# OS / IDE
+# ======================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -32,7 +32,7 @@ def prepare_dataframe_for_lstm(df, n_steps):
     if "Date" in df.columns:
         df.set_index("Date", inplace=True)
 
-    col = "Close_scaled"  # Use scaled close
+    col = "Close"  
     print(f"Original df shape: {df.shape}")
     print(f"NaNs in {col} before shifting: {df[col].isna().sum()}")
 
