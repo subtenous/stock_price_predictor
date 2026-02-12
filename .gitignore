@@ -36,6 +36,14 @@ EDA_Output_*/
 *.png
 *.csv
 *_evaluation.txt
+*.npy
+*.npz
+
+# ======================
+# Jupyter
+# ======================
+.ipynb_checkpoints/
+*.ipynb
 
 # ======================
 # Node / React (future)
@@ -43,6 +51,12 @@ EDA_Output_*/
 node_modules/
 dist/
 build/
+
+# ======================
+# Environment files
+# ======================
+.env
+*.env
 
 # ======================
 # OS / IDE

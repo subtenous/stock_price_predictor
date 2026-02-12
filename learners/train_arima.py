@@ -163,6 +163,49 @@ def train_arima_model(split_ratio, skip_ratio, EXTERNAL_TICKERS, TICKER):
     print("--- ARIMA Model Training and Prediction Complete ---")
     return model, predictions.values
 
+def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"):
+    symbol = (symbol or "").strip().upper()
+    if not symbol:
+        raise ValueError("Symbol is required")
+
+    df = yf.download(symbol, start=start, progress=False)
+    if df is None or df.empty:
+        raise ValueError(f"No data returned for symbol '{symbol}'")
+
+    close = df["Close"].astype(float).dropna()
+    if len(close) < 60:
+        raise ValueError("Not enough historical data to fit ARIMA reliably (need ~60+ points)")
+
+    # Fit ARIMA on all available history (simple baseline)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        model_auto = auto_arima(
+            close.values,
+            seasonal=False,
+            stepwise=True,
+            suppress_warnings=True,
+            error_action="ignore",
+        )
+    order = model_auto.order
+
+    model = ARIMA(close.values, order=order).fit()
+
+    preds = model.forecast(steps=days)
+
+    last_date = pd.to_datetime(close.index[-1])
+    future_dates = pd.bdate_range(last_date + pd.Timedelta(days=1), periods=days)
+
+    return {
+        "symbol": symbol,
+        "as_of": last_date.strftime("%Y-%m-%d"),
+        "horizon_days": days,
+        "predictions": [
+            {"date": d.strftime("%Y-%m-%d"), "predicted_close": float(p)}
+            for d, p in zip(future_dates, preds)
+        ],
+        "model_info": {"order": order},
+    }
+
 
 if __name__ == "__main__":
     # Example usage for testing

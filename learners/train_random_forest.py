@@ -1,3 +1,4 @@
+from pyexpat import features
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -95,6 +96,52 @@ class RandomForestModel:
 
         return features.dropna()
 
+    def build_latest_feature_row_from_close(self, close_series) -> pd.DataFrame:
+    
+        # ---- Normalize input to a 1D float Series ----
+        if isinstance(close_series, pd.DataFrame):
+            close_series = close_series.iloc[:, 0]
+
+        close_series = pd.Series(close_series).astype(float)
+
+        if not isinstance(close_series.index, pd.DatetimeIndex):
+            # fallback: assume last day is "today"
+            close_series.index = pd.date_range(end=pd.Timestamp.today(), periods=len(close_series), freq="B")
+
+        # ---- Helper to ensure scalar extraction ----
+        def _scalar(x):
+            # handles numpy scalars cleanly
+            return float(np.asarray(x).reshape(-1)[0])
+
+        features = {}
+
+        # ---- Lags ----
+        for lag in self.config["LOOKBACK_LAGS"]:
+            if len(close_series) <= lag:
+                raise ValueError(f"Not enough history for lag {lag} (need > {lag}, got {len(close_series)})")
+            features[f"lag_{lag}"] = _scalar(close_series.iloc[-lag])
+
+        # ---- Moving averages ----
+        features["ma_5"] = _scalar(close_series.rolling(5).mean().iloc[-1])
+        features["ma_20"] = _scalar(close_series.rolling(20).mean().iloc[-1])
+
+        # ---- RSI 14 ----
+        delta = close_series.diff()
+        gain = delta.where(delta > 0, 0).rolling(14).mean().iloc[-1]
+        loss = (-delta.where(delta < 0, 0)).rolling(14).mean().iloc[-1]
+        rs = _scalar(gain) / (_scalar(loss) if _scalar(loss) != 0 else 1e-6)
+        features["rsi_14"] = float(100 - (100 / (1 + rs)))
+
+        # ---- Calendar features (next business day) ----
+        last_dt = close_series.index[-1]
+        next_day = (last_dt + pd.offsets.BDay(1))
+        features["day_of_week"] = int(next_day.dayofweek)
+        features["month"] = int(next_day.month)
+
+        return pd.DataFrame([features])
+
+        
+
     def prepare_data(self, featured_data):
         print("Preparing train/skip/test split...")
         X = featured_data.drop("Target", axis=1)
@@ -162,6 +209,79 @@ def train_random_forest_model(split_ratio, skip_ratio, EXTERNAL_TICKERS=None, TI
     # The main system expects the model object and the raw prediction values
     return model_handler.model, predictions
 
+
+def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"):
+    symbol = (symbol or "").strip().upper()
+    if not symbol:
+        raise ValueError("Symbol is required")
+
+    df = yf.download(symbol, start=start, progress=False)
+    if df is None or df.empty:
+        raise ValueError(f"No data returned for symbol '{symbol}'")
+
+    close = df["Close"].astype(float).dropna()
+    if len(close) < 100:
+        raise ValueError("Not enough history to train RF reliably (need ~100+ points)")
+
+    # Train RF using your existing pipeline, but on close-only derived features
+    handler = RandomForestModel(split_ratio=0.8, skip_ratio=0.1, EXTERNAL_TICKERS=[], TICKER=symbol)
+
+    # Build a training feature table similar to your current logic
+    # Create a small featured dataset from close series
+    featured = pd.DataFrame(index=close.index)
+    featured["Target"] = close.shift(-1)
+
+    for lag in handler.config["LOOKBACK_LAGS"]:
+        featured[f"lag_{lag}"] = close.shift(lag)
+
+    featured["ma_5"] = close.rolling(5).mean()
+    featured["ma_20"] = close.rolling(20).mean()
+
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss.replace(0, 1e-6)
+    featured["rsi_14"] = 100 - (100 / (1 + rs))
+
+    featured["day_of_week"] = close.index.dayofweek
+    featured["month"] = close.index.month
+
+    featured = featured.dropna()
+
+    X = featured.drop("Target", axis=1)
+    y = featured["Target"]
+
+    handler.model = RandomForestRegressor(**handler.config["RF_PARAMS"])
+    handler.model.fit(X, y)
+    handler.feature_names = X.columns.tolist()
+
+    # Recursive forecast
+    preds = []
+    sim_close = close.copy()
+
+    for _ in range(days):
+        X_next = handler.build_latest_feature_row_from_close(sim_close)
+        X_next = X_next[handler.feature_names]  # ensure column order
+        y_hat = float(handler.model.predict(X_next)[0])
+        preds.append(y_hat)
+
+        # append predicted close as if it were real next close
+        next_date = pd.bdate_range(sim_close.index[-1] + pd.Timedelta(days=1), periods=1)[0]
+        sim_close.loc[next_date] = y_hat
+
+    last_date = pd.to_datetime(close.index[-1])
+    future_dates = pd.bdate_range(last_date + pd.Timedelta(days=1), periods=days)
+
+    return {
+        "symbol": symbol,
+        "as_of": last_date.strftime("%Y-%m-%d"),
+        "horizon_days": days,
+        "predictions": [
+            {"date": d.strftime("%Y-%m-%d"), "predicted_close": float(p)}
+            for d, p in zip(future_dates, preds)
+        ],
+    }
+    
 
 def plot_results(y_test, y_pred, ticker):
     """Helper function for visualizing results when run standalone."""
