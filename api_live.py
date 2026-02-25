@@ -1,16 +1,17 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import traceback
 
 from forecast_lstm_live import recursive_forecast_lstm
 from learners.train_arima import arima_forecast_next_days
 from learners.train_random_forest import rf_forecast_next_days
-import traceback
-from fastapi import HTTPException
+from baselines.naive import naive_forecast_next_days
+
 app = FastAPI(title="Live Forecast API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -20,14 +21,17 @@ app.add_middleware(
 def health():
     return {"status": "ok"}
 
-
 @app.get("/forecast")
 def forecast(
-    symbol: str = Query(...),
-    days: int = Query(30, ge=1, le=60),
-    model: str = Query("lstm", pattern="^(lstm|arima|rf)$"),
+    symbol: str = Query(..., description="Stock ticker symbol (e.g., AAPL)"),
+    days: int = Query(30, ge=1, le=60, description="Forecast horizon in business days"),
+    model: str = Query("lstm", pattern="^(lstm|arima|rf|naive)$", description="Model to use"),
 ):
     try:
+        symbol = (symbol or "").strip().upper()
+        if not symbol:
+            raise ValueError("Symbol is required")
+
         if model == "lstm":
             return recursive_forecast_lstm(symbol, days)
 
@@ -35,24 +39,26 @@ def forecast(
             return arima_forecast_next_days(symbol, days)
 
         if model == "rf":
-            try:
-                return rf_forecast_next_days(symbol, days)
-            except Exception as e:
-                traceback.print_exc()
-                raise HTTPException(status_code=500, detail=str(e))
+            return rf_forecast_next_days(symbol, days)
+        
+        if model == "naive":
+            return naive_forecast_next_days(symbol, days)
+
+        # Should never happen because of the regex, but keep it safe
+        raise ValueError(f"Unknown model '{model}'")
 
     except FileNotFoundError as e:
-        # Missing model weights, scaler, etc
-        raise HTTPException(status_code=500, detail=f"Server configuration error: {str(e)}")
+        # Missing weights/scalers/artifacts on server
+        raise HTTPException(status_code=500, detail=f"Server configuration error: {e}")
 
     except ValueError as e:
+        # Bad user input / no data / not enough history
         msg = str(e).lower()
-
-        if "no data returned" in msg or "no data found" in msg:
+        if "no data" in msg or "no data returned" in msg or "no data found" in msg:
             raise HTTPException(status_code=404, detail=str(e))
-
         raise HTTPException(status_code=400, detail=str(e))
 
     except Exception as e:
         # Unexpected crash
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal server error")

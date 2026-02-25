@@ -215,19 +215,24 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
     if not symbol:
         raise ValueError("Symbol is required")
 
-    df = yf.download(symbol, start=start, progress=False)
+    df = yf.download(symbol, start=start, progress=False, auto_adjust=False)
     if df is None or df.empty:
-        raise ValueError(f"No data returned for symbol '{symbol}'")
+        raise ValueError(f"No data found for symbol '{symbol}'")
+
+    if "Close" not in df.columns:
+        raise ValueError("Yahoo Finance response missing 'Close' column")
 
     close = df["Close"].astype(float).dropna()
-    if len(close) < 100:
-        raise ValueError("Not enough history to train RF reliably (need ~100+ points)")
+    if len(close) < 250:
+        raise ValueError("Not enough history to train RF reliably (need ~250+ points)")
 
-    # Train RF using your existing pipeline, but on close-only derived features
-    handler = RandomForestModel(split_ratio=0.8, skip_ratio=0.1, EXTERNAL_TICKERS=[], TICKER=symbol)
+    handler = RandomForestModel(
+        split_ratio=0.8,
+        skip_ratio=0.1,
+        EXTERNAL_TICKERS=[],
+        TICKER=symbol
+    )
 
-    # Build a training feature table similar to your current logic
-    # Create a small featured dataset from close series
     featured = pd.DataFrame(index=close.index)
     featured["Target"] = close.shift(-1)
 
@@ -247,25 +252,27 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
     featured["month"] = close.index.month
 
     featured = featured.dropna()
+    if len(featured) < 100:
+        raise ValueError("Not enough usable rows after feature engineering (lags/rolling windows removed too much data)")
 
     X = featured.drop("Target", axis=1)
     y = featured["Target"]
 
-    handler.model = RandomForestRegressor(**handler.config["RF_PARAMS"])
-    handler.model.fit(X, y)
+    model = RandomForestRegressor(**handler.config["RF_PARAMS"])
+    model.fit(X, y)
+
+    handler.model = model
     handler.feature_names = X.columns.tolist()
 
-    # Recursive forecast
     preds = []
     sim_close = close.copy()
 
     for _ in range(days):
         X_next = handler.build_latest_feature_row_from_close(sim_close)
-        X_next = X_next[handler.feature_names]  # ensure column order
+        X_next = X_next[handler.feature_names]
         y_hat = float(handler.model.predict(X_next)[0])
         preds.append(y_hat)
 
-        # append predicted close as if it were real next close
         next_date = pd.bdate_range(sim_close.index[-1] + pd.Timedelta(days=1), periods=1)[0]
         sim_close.loc[next_date] = y_hat
 
@@ -280,6 +287,7 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
             {"date": d.strftime("%Y-%m-%d"), "predicted_close": float(p)}
             for d, p in zip(future_dates, preds)
         ],
+        "model_info": {"n_obs": int(len(close)), "n_train_rows": int(len(featured))},
     }
     
 

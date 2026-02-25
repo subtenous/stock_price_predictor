@@ -8,7 +8,6 @@ import os
 import warnings
 from statsmodels.tools.sm_exceptions import HessianInversionWarning
 
-
 class ARIMAModel:
     def __init__(self, split_ratio=0.80, skip_ratio=0.10, external_tickers=None, ticker=None):
         # Sanitize all ticker names at the beginning
@@ -168,15 +167,19 @@ def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-
     if not symbol:
         raise ValueError("Symbol is required")
 
-    df = yf.download(symbol, start=start, progress=False)
+    # Use auto_adjust=False so "Close" exists consistently
+    df = yf.download(symbol, start=start, progress=False, auto_adjust=False)
     if df is None or df.empty:
-        raise ValueError(f"No data returned for symbol '{symbol}'")
+        raise ValueError(f"No data found for symbol '{symbol}'")
+
+    if "Close" not in df.columns:
+        raise ValueError("Yahoo Finance response missing 'Close' column")
 
     close = df["Close"].astype(float).dropna()
-    if len(close) < 60:
-        raise ValueError("Not enough historical data to fit ARIMA reliably (need ~60+ points)")
+    if len(close) < 100:
+        raise ValueError("Not enough historical data to fit ARIMA reliably (need ~100+ points)")
 
-    # Fit ARIMA on all available history (simple baseline)
+    # auto_arima picks (p,d,q). Let it decide d (stationarity) rather than forcing.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
         model_auto = auto_arima(
@@ -185,10 +188,15 @@ def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-
             stepwise=True,
             suppress_warnings=True,
             error_action="ignore",
+            # Important: don't force stationary=True unless you KNOW it's stationary
+            stationary=False,
         )
     order = model_auto.order
 
-    model = ARIMA(close.values, order=order).fit()
+    # statsmodels ARIMA fit
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore")
+        model = ARIMA(close.values, order=order).fit()
 
     preds = model.forecast(steps=days)
 
@@ -203,7 +211,7 @@ def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-
             {"date": d.strftime("%Y-%m-%d"), "predicted_close": float(p)}
             for d, p in zip(future_dates, preds)
         ],
-        "model_info": {"order": order},
+        "model_info": {"order": list(order), "n_obs": int(len(close))},
     }
 
 
