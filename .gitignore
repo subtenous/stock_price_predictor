@@ -46,11 +46,25 @@ EDA_Output_*/
 *.ipynb
 
 # ======================
-# Node / React (future)
+# Frontend / React / Vite
 # ======================
-node_modules/
-dist/
-build/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# Local frontend env files
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # ======================
 # Environment files
