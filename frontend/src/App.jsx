@@ -127,8 +127,10 @@ function App() {
               <option value={1}>1 day</option>
               <option value={3}>3 days</option>
               <option value={5}>5 days</option>
-              <option value={7}>7 days</option>
               <option value={10}>10 days</option>
+              <option value={15}>15 days</option>
+              <option value={20}>20 days</option>
+              <option value={30}>30 days</option>
             </select>
           </div>
 
