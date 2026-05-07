@@ -78,7 +78,6 @@ function App() {
     <main className="app">
       <section className="card">
         <div className="header">
-          <p className="tag">Final Year Project Prototype</p>
           <h1>Stock Price Predictor</h1>
           <p className="subtitle">
             Select a stock ticker and forecasting model to generate a short-term
