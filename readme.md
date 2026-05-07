@@ -26,6 +26,14 @@ This work was initially informed by and adapted from the following open-source r
 
 The original repository provided a research-based stock prediction framework and examples of model architectures. The adaptations, backend API implementation, frontend prototype, evaluation work, and system integration were completed as part of this project.
 
+## My Main Contributions
+- Adapted the existing research codebase for live forecasting through a FastAPI backend.
+- Added new live forecasting functions for ARIMA and Random Forest to support API-based predictions.
+- Implemented recursive multi-step forecasting so the system can generate configurable future trading-day forecasts.
+- Added JSON response formatting so predictions can be consumed directly by the React frontend.
+- Implemented a React frontend prototype for ticker, model, and forecast horizon selection.
+- Added evaluation and testing across multiple tickers and forecasting models.
+
 ## Main Features
 
 - Retrieves historical stock data using `yfinance`
