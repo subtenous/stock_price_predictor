@@ -1,191 +1,198 @@
-# Stock Price Prediction System
+Stock Price Prediction System
 
-This repository contains the **research and backend implementation** for my Final Year Project (University of Portsmouth).
+Final Year Project - Computer Science
+University of Portsmouth
+Author: Marcus Cameron
 
-The project focuses on **evaluating, improving, and deploying stock price forecasting models**, and exposing predictions via a REST API for use in a React frontend.
+Project Overview
 
----
+This repository contains the implementation for my Final Year Project, titled Design and Evaluation of a Stock Price Prediction System Using Machine Learning Models.
 
-## Background
+The project focuses on integrating and evaluating stock price forecasting models within a practical software system. It includes a Python/FastAPI backend for retrieving stock data and generating forecasts, and a React frontend prototype for selecting forecasting options and visualising returned predictions.
 
-Financial markets are complex and noisy, making accurate forecasting challenging. While many machine learning and deep learning models have been proposed in academic literature, relatively few are evaluated rigorously and deployed in accessible applications.
+The system was developed as an engineering project to explore the gap between research-based forecasting models and practical user-facing applications.
 
-This project explores **ensemble-based stock forecasting**, combining multiple time-series and machine learning models into a single meta-learner, and focuses on:
-- model evaluation over realistic time horizons
-- multi-day forecasting into the future
-- deployment through an API suitable for frontend integration
+Background
 
----
+Financial markets are complex, volatile, and difficult to predict reliably. While many statistical, machine learning, and deep learning models have been proposed in academic literature, fewer are integrated into accessible systems that allow users to interact with live data and view predictions through an interface.
 
-## Attribution / Starting Point
+This project addresses that gap by combining forecasting models, a backend API, and a frontend prototype into a functional end-to-end system.
 
-This work was initially based on and adapted from the following open-source research repository:
+Attribution / Starting Point
 
-- https://github.com/micfun123/AI-stock-prediction
+This work was initially informed by and adapted from the following open-source research repository:
 
-The original repository provided a stacked-model architecture and initial experimentation framework.  
-All subsequent modifications, extensions, evaluation, and deployment work are my own.
+https://github.com/micfun123/AI-stock-prediction
 
----
+The original repository provided a research-based stock prediction framework and examples of model architectures. The adaptations, backend API implementation, frontend prototype, evaluation work, and system integration were completed as part of this project.
 
-## My Contributions So Far
+Main Features
+Retrieves historical stock data using yfinance
+Supports multiple forecasting approaches
+Includes Naive baseline, ARIMA, Random Forest, and exploratory LSTM work
+Provides forecasts through a FastAPI REST API
+Supports configurable stock ticker, model type, and forecast horizon
+Returns predictions in structured JSON format
+Includes a React/Vite frontend prototype
+Displays forecasts using a line chart and table
+Includes basic loading and error handling in the frontend
+Supports short and longer trading-day forecast horizons
+Repository Structure
 
-Key changes and additions implemented in this repository include:
+stock_price_predictor/
+├── api_live.py - FastAPI backend exposing the /forecast endpoint
+├── start.py - Original orchestration script for model training/evaluation
+├── forecast_lstm_live.py - LSTM forecasting logic used during development
+├── learners/ - Individual model implementations
+├── meta_learner/ - Meta-learner related files from the adapted research implementation
+├── utils/ - Data loading and preprocessing utilities
+├── baselines/ - Baseline model-related files
+├── results/ - Evaluation outputs and results
+├── frontend/ - React/Vite frontend prototype
+├── requirements.txt - Python dependencies
+├── .gitignore - Ignored files and folders
+└── README.md - Project documentation
 
-- Refactored data range handling (customisable start/end dates, training windows)
-- Introduced **recursive multi-step forecasting** (e.g. 30-day horizon) for LSTM-based models
-- Implemented a **FastAPI backend** to expose forecasts via HTTP endpoints
-- Added infrastructure for saving trained model artifacts and scalers
-- Began restructuring the project for integration with a React frontend
-- Improved clarity around training vs inference workflows
+Backend Setup
 
-These changes move the project from a research-only prototype toward a **deployable system**.
+Create and activate a Python virtual environment:
 
----
+python -m venv .venv
 
-## Model Architecture (Overview)
+On Windows:
 
-The system uses a **stacked ensemble approach**, where multiple base learners generate predictions that are combined by a meta-learner:
+.venv\Scripts\activate
 
+Install the required Python dependencies:
 
-```
-          Historical Prices ───► ARIMA ───┐
-                                          │
-           Time Series Data ───►  LSTM ───┤
-                                          │
-           Time Series Data ───►  GRU  ───┤
-                                          │
-  Technical Indicators & Features ─►  RF ─┤
-                                          │
-                                          ▼
-                                Meta Learner: XGBoost
-                                  (Final Prediction)
-```
+pip install -r requirements.txt
 
-## Repository Structure
+Run the FastAPI backend:
 
-- learners/ # Individual base model training scripts (LSTM, GRU, ARIMA, RF, Transformer)
-- meta_learner/ # XGBoost meta-learner training and evaluation
-- utils/ # Data loading and preprocessing utilities
-- start.py # Main orchestration script (data loading, training, evaluation)
-- api_live.py # FastAPI backend exposing forecasting endpoints
-- forecast_lstm_live.py # Recursive multi-step LSTM forecasting logic
-- requirements.txt # Python dependencies
-- README.md
+uvicorn api_live:app --reload
 
----
+The backend should run locally at:
 
-## Data Source
+http://127.0.0.1:8000
 
-Historical stock market data is retrieved programmatically using **Yahoo Finance** via the `yfinance` library.
+API Usage
 
-The system supports configurable:
-- ticker symbols
-- training date ranges
-- external comparison indices (e.g. market volatility or benchmark indices)
+The main endpoint is:
 
-This allows experiments to be repeated across multiple assets and time periods.
+GET /forecast
 
----
+Example request:
 
-## Forecasting Approach
+http://127.0.0.1:8000/forecast?symbol=AAPL&days=5&model=arima
 
-The project supports both **single-step evaluation** and **multi-step recursive forecasting**.
+Example parameters:
 
-For multi-day forecasting:
-- the model predicts the next timestep
-- the prediction is fed back as input
-- the process is repeated for a fixed horizon (e.g. 30 days)
+Parameter	Description	Example
+symbol	Stock ticker symbol	AAPL
+days	Forecast horizon in trading days	5
+model	Forecasting model	arima
 
-This approach reflects how forecasts would be generated in real-world usage, rather than relying on future ground-truth data.
+Example response:
 
----
+{
+"symbol": "AAPL",
+"as_of": "2026-05-01",
+"horizon_days": 5,
+"predictions": [
+{
+"date": "2026-05-04",
+"predicted_close": 280.13
+}
+],
+"model_info": {
+"order": [3, 1, 5],
+"n_obs": 4107
+}
+}
 
-## API Overview
+Forecasting Approach
 
-A FastAPI backend is used to expose trained models via HTTP endpoints.  
-This enables separation between:
-- model training and research
-- frontend visualisation and interaction
+The system supports recursive multi-step forecasting. In this approach, the model predicts the next trading day, then that prediction is fed back into the model to generate later predictions.
 
-Example endpoint (development):
----
+This allows the system to produce multi-day forecasts, such as 5, 10, 20, or 30 trading days. However, longer forecasts should be interpreted with caution because recursive forecasting can accumulate error over time.
 
-## Data Source
+Models
 
-Historical stock market data is retrieved programmatically using **Yahoo Finance** via the `yfinance` library.
+The project includes several forecasting approaches:
 
-The system supports configurable:
-- ticker symbols
-- training date ranges
-- external comparison indices (e.g. market volatility or benchmark indices)
+Naive baseline
+ARIMA
+Random Forest
+Exploratory LSTM implementation
 
-This allows experiments to be repeated across multiple assets and time periods.
+The final frontend prototype focuses on the more stable forecasting options. LSTM was explored during development, but was not prioritised as a main user-facing model due to reliability and integration limitations.
 
----
+Frontend
 
-## Forecasting Approach
+The frontend prototype is located in the frontend/ folder.
 
-The project supports both **single-step evaluation** and **multi-step recursive forecasting**.
+It was built using:
 
-For multi-day forecasting:
-- the model predicts the next timestep
-- the prediction is fed back as input
-- the process is repeated for a fixed horizon (e.g. 30 days)
+React
+Vite
+JavaScript
+Recharts
 
-This approach reflects how forecasts would be generated in real-world usage, rather than relying on future ground-truth data.
+The frontend allows users to:
 
----
+Select a supported stock ticker
+Select a forecasting model
+Select a forecast horizon
+Generate a forecast
+View results in a chart and table
 
-## API Overview
+To run the frontend:
 
-A FastAPI backend is used to expose trained models via HTTP endpoints.  
-This enables separation between:
-- model training and research
-- frontend visualisation and interaction
+cd frontend
+npm install
+npm run dev
 
-Example endpoint (development):
-GET /forecast?symbol=AAPL&days=30
+The frontend usually runs at:
 
-Returns a JSON response containing:
-- the forecast horizon
-- the reference date
-- predicted closing prices for future business days
+http://localhost:5173
 
-The API layer is designed to be consumed by a React frontend.
+The backend must also be running for forecasts to work.
 
----
+Testing
 
-## Current Status
+Testing included:
 
-This repository represents the **research and backend phase** of the project.
+API testing through browser requests
+Valid ticker testing
+Invalid ticker testing
+Model selection testing
+Forecast horizon testing
+Frontend-to-backend integration testing
+Frontend error handling when the backend is unavailable
+Model evaluation using MAE and RMSE
+Walk-forward validation over recent trading data
+Current Status
 
-**Completed:**
-- base learner training pipeline
-- ensemble meta-learner
-- recursive multi-day forecasting
-- API integration for live inference
+Completed:
 
-**In progress / upcoming:**
-- multi-ticker robustness evaluation
-- comparison across different training windows
-- React frontend development
-- formal evaluation and dissertation write-up
+Data retrieval and preprocessing pipeline
+Naive baseline model
+ARIMA forecasting
+Random Forest forecasting
+Exploratory LSTM integration
+FastAPI /forecast endpoint
+React frontend prototype
+Forecast visualisation using Recharts
+Model benchmarking and evaluation
 
----
+Future improvements:
 
-## Future Work
+Historical price overlays
+Confidence or uncertainty indicators
+More detailed model comparison views
+Wider ticker evaluation
+Deployment of backend and frontend
+Improved deep learning model integration
+Disclaimer
 
-Planned extensions include:
-- evaluating generalisation across a wider range of equities
-- adding confidence or uncertainty indicators to forecasts
-- improving model comparison and validation strategies
-- frontend-based visualisation of predictions and historical trends
-
----
-
-## Disclaimer
-
-This project is conducted for **academic research purposes only**.  
-It does **not** constitute financial advice and should not be used for real-world trading decisions.
-
+This project was developed for academic research purposes only. It does not constitute financial advice and should not be used for real-world trading or investment decisions.
