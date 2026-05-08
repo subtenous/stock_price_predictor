@@ -96,6 +96,12 @@ select {
   color: #111827;
 }
 
+.disclaimer {
+  margin: -8px 0 24px 0;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
 button {
   padding: 15px 24px;
   min-width: 190px;

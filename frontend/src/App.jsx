@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import "./App.css";
 
+// Tickers are restricted to options testing during development
 const SUPPORTED_TICKERS = [
   "AAPL",
   "MSFT",
@@ -21,6 +22,7 @@ const SUPPORTED_TICKERS = [
   "^IXIC",
 ];
 
+// stable model options that are expected to work across all tickers based on testing
 const SUPPORTED_MODELS = [
   { value: "arima", label: "ARIMA" },
   { value: "rf", label: "Random Forest" },
@@ -36,6 +38,7 @@ function App() {
   const [error, setError] = useState("");
   
 
+  // Fetch forecast data from the backend API based on user selections
   const getPrediction = async () => {
     setLoading(true);
     setError("");
@@ -63,6 +66,7 @@ function App() {
     }
   };
 
+  // Convert API predictions into the format Recharts expects, while rounding predicted close prices to 2 decimals for display
   const chartData =
     predictionData?.predictions?.map((item) => ({
       date: item.date,
@@ -142,6 +146,12 @@ function App() {
           Supported tickers: {SUPPORTED_TICKERS.join(", ")}
         </p>
 
+        <p className="disclaimer">
+          Forecasts are for academic demonstration only and should not be treated
+          as financial advice.
+        </p>
+
+         
         {error && <p className="error">{error}</p>}
 
         {!predictionData && !loading && !error && (

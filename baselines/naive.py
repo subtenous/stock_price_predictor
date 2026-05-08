@@ -18,10 +18,15 @@ def _get_close_series(df: pd.DataFrame) -> pd.Series:
 
 
 def naive_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"):
+    """
+    Generate a naive forecast for a selected stock ticker by predicting that the 
+    closing price will remain constant at the last observed value.
+    """
     symbol = (symbol or "").strip().upper()
     if not symbol:
         raise ValueError("Symbol is required")
 
+    # download historical price data from Yahoo Finance
     df = yf.download(symbol, start=start, progress=False)
     if df is None or df.empty:
         raise ValueError(f"No data returned for symbol '{symbol}'")
@@ -35,6 +40,8 @@ def naive_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-
 
     last_close = float(close.iloc[-1])
     last_date = pd.to_datetime(close.index[-1])
+
+    # Generate future business dates so forecasts skip weekends
     future_dates = pd.bdate_range(last_date + pd.Timedelta(days=1), periods=days)
 
     return {

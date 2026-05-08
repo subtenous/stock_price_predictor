@@ -162,12 +162,21 @@ def train_arima_model(split_ratio, skip_ratio, EXTERNAL_TICKERS, TICKER):
     print("--- ARIMA Model Training and Prediction Complete ---")
     return model, predictions.values
 
+
+# Added for the FastAPI backend: live ARIMA forecasting for a selected ticker.
 def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"):
+    """
+    Generate a multi-day ARIMA forecast for a selected stock ticker.
+
+    Historical closing prices are downloaded from Yahoo Finance, an ARIMA
+    order is selected automatically, and future business-day closing prices
+    are returned in a JSON-compatible format for the API/frontend.
+    """
     symbol = (symbol or "").strip().upper()
     if not symbol:
         raise ValueError("Symbol is required")
 
-    # Use auto_adjust=False so "Close" exists consistently
+    # Download historical data Use auto_adjust=False so "Close" exists consistently
     df = yf.download(symbol, start=start, progress=False, auto_adjust=False)
     if df is None or df.empty:
         raise ValueError(f"No data found for symbol '{symbol}'")
@@ -179,7 +188,8 @@ def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-
     if len(close) < 100:
         raise ValueError("Not enough historical data to fit ARIMA reliably (need ~100+ points)")
 
-    # auto_arima picks (p,d,q). Let it decide d (stationarity) rather than forcing.
+    # auto_arima picks (p,d,q).
+    # this avoids manually fixing parameters for every ticker
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore")
         model_auto = auto_arima(
@@ -198,8 +208,10 @@ def arima_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-
         warnings.filterwarnings("ignore")
         model = ARIMA(close.values, order=order).fit()
 
+    # Forecast the selected number of future trading days
     preds = model.forecast(steps=days)
 
+    # Generate future business dates so weekends are skipped
     last_date = pd.to_datetime(close.index[-1])
     future_dates = pd.bdate_range(last_date + pd.Timedelta(days=1), periods=days)
 

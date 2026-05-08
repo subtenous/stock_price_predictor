@@ -209,8 +209,15 @@ def train_random_forest_model(split_ratio, skip_ratio, EXTERNAL_TICKERS=None, TI
     # The main system expects the model object and the raw prediction values
     return model_handler.model, predictions
 
-
+# Added for the FastAPI backend: live multi-day Random Forest forecasting.
 def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"):
+    """
+    Generate a recursive multi-day Random Forest forecast for a stock ticker.
+
+    The model is trained on recent historical closing price features and then
+    predicts future trading days by feeding each prediction back into the input
+    series. This mirrors live forecasting, where future true prices are unknown.
+    """
     symbol = (symbol or "").strip().upper()
     if not symbol:
         raise ValueError("Symbol is required")
@@ -233,6 +240,8 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
         TICKER=symbol
     )
 
+    # Build a feature table using lagged prices and technical indicators based on the historical close prices
+    # The target is the next day's close 
     featured = pd.DataFrame(index=close.index)
     featured["Target"] = close.shift(-1)
 
@@ -242,6 +251,7 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
     featured["ma_5"] = close.rolling(5).mean()
     featured["ma_20"] = close.rolling(20).mean()
 
+    # calculate a simple 14-day RSI
     delta = close.diff()
     gain = delta.where(delta > 0, 0).rolling(14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -258,6 +268,7 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
     X = featured.drop("Target", axis=1)
     y = featured["Target"]
 
+    # Train the Random Forest model on the historical data
     model = RandomForestRegressor(**handler.config["RF_PARAMS"])
     model.fit(X, y)
 
@@ -267,6 +278,8 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
     preds = []
     sim_close = close.copy()
 
+    # recursive forecasting: for each future day, build the feature row based on the latest simulated close prices, 
+    # predict the next close, and append it back to the series for the next iteration.
     for _ in range(days):
         X_next = handler.build_latest_feature_row_from_close(sim_close)
         X_next = X_next[handler.feature_names]
@@ -276,6 +289,7 @@ def rf_forecast_next_days(symbol: str, days: int = 30, start: str = "2010-01-01"
         next_date = pd.bdate_range(sim_close.index[-1] + pd.Timedelta(days=1), periods=1)[0]
         sim_close.loc[next_date] = y_hat
 
+    # generate future business dates so weekends are skipped
     last_date = pd.to_datetime(close.index[-1])
     future_dates = pd.bdate_range(last_date + pd.Timedelta(days=1), periods=days)
 

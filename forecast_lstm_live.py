@@ -59,7 +59,7 @@ def recursive_forecast_lstm(symbol: str, days: int = 30, start: str = "2010-01-0
     #print("Scaled row min/max:", test_scaled.min(), test_scaled.max())
 
     
-    # NOTE: This assumes lstm_scaler was fit on values in same "space" as row.
+    #This assumes lstm_scaler was fit on values in same "space" as row.
     row_scaled = lstm_scaler.transform(row)
 
     X_last = row_scaled[:, 1:]

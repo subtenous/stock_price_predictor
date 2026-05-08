@@ -7,11 +7,13 @@ from learners.train_arima import arima_forecast_next_days
 from learners.train_random_forest import rf_forecast_next_days
 from baselines.naive import naive_forecast_next_days
 
+# Create the fastAPI app
 app = FastAPI(title="Live Forecast API")
 
+# Allows the local frontend to call backend during development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # dev
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -19,14 +21,19 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
+    """basic endpoint to check if server is running"""
     return {"status": "ok"}
 
 @app.get("/forecast")
 def forecast(
     symbol: str = Query(..., description="Stock ticker symbol (e.g., AAPL)"),
     days: int = Query(30, ge=1, le=60, description="Forecast horizon in business days"),
-    model: str = Query("lstm", pattern="^(lstm|arima|rf|naive)$", description="Model to use"),
+    model: str = Query("arima", pattern="^(lstm|arima|rf|naive)$", description="Model to use"),
 ):
+    """
+    Generate a forecast for the next N business days for the given stock symbol using the specified model.
+    Returns forecast dates, predicted closing prices, and metadata about the forecast.
+    """
     try:
         symbol = (symbol or "").strip().upper()
         if not symbol:
@@ -44,7 +51,6 @@ def forecast(
         if model == "naive":
             return naive_forecast_next_days(symbol, days)
 
-        # Should never happen because of the regex, but keep it safe
         raise ValueError(f"Unknown model '{model}'")
 
     except FileNotFoundError as e:
